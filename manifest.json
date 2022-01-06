@@ -1,0 +1,21 @@
+{
+  "platform-version": "2.2",
+  "product": {
+    "freshservice": {
+      "events": {
+        "onTicketCreate": {
+          "handler": "sendTicketCreationInfo"
+        }
+      }
+    }
+  },
+  "whitelisted-domains": ["https://*.freshservice.com", "https://app.orbit.love"],
+  "engines": {
+    "node": "12.22.7",
+    "fdk": "7.2.1"
+  },
+  "dependencies": {
+    "base-64": "1.0.0",
+    "axios": "0.24.0"
+  }
+}

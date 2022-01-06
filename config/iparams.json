@@ -1,0 +1,44 @@
+{
+  "subdomain": {
+    "display_name": "What's the Sub Domain of your Freshservice Account?",
+    "description": "Just the subdomain!",
+    "type": "domain",
+    "type_attributes": {
+      "product": "freshservice"
+    },
+    "data-bind": "product.domain",
+    "required": true,
+    "visible": true
+  },
+  "freshservice_apiKey": {
+    "display_name": "API Key of your Freshservice Account",
+    "description": "This is used to get user details",
+    "type": "api_key",
+    "type_attributes": {
+      "product": "freshservice"
+    },
+    "data-bind": "product.api_key",
+    "required": true,
+    "visible": true,
+    "secure": true
+  },
+  "orbit_apiKey": {
+    "display_name": "Orbit API key",
+    "type": "text",
+    "required": true,
+    "visible": true,
+    "secure": true,
+    "events": [
+      {
+        "change": "getWorkspaces"
+      }
+    ]
+  },
+  "workspace_slug": {
+    "display_name": "Select Orbit Workspace",
+    "description": "This is usually the slug of your orbit workspace. Select one from the dropdown below.",
+    "type": "dropdown",
+    "options": ["to_be_fetched"],
+    "default_value": "to_be_fetched"
+  }
+}
