@@ -39,7 +39,6 @@ exports = {
     } catch (error) {
       console.log('error', error);
     }
-    console.log('request sent', first_name, primary_email, serviceRequester, iparams);
 
     let OptsToOrbit = {
       method: 'POST',
@@ -51,9 +50,8 @@ exports = {
       },
       data: {
         identity: {
-          name: first_name,
           source: 'Dev-Assist',
-          email: primary_email
+          name: first_name
         },
         activity: {
           title: `${serviceRequester.subject}`,
@@ -64,9 +62,7 @@ exports = {
       }
     };
     try {
-      console.log(OptsToOrbit);
-      let res = await axios.request(OptsToOrbit);
-      console.log('response from orbit', res.status);
+      await axios.request(OptsToOrbit);
     } catch (error) {
       console.error('unable to send requests to orbit', error.status);
     }
@@ -78,8 +74,6 @@ exports = {
       },
       iparams
     } = payload;
-
-    console.log(body_text, from_email);
 
     let OptsToOrbit = {
       method: 'POST',
@@ -101,10 +95,8 @@ exports = {
         }
       }
     };
-    console.log(OptsToOrbit);
     try {
-      let res = await axios.request(OptsToOrbit);
-      console.log('response from orbit', res.status);
+      await axios.request(OptsToOrbit);
     } catch (error) {
       console.error('unable to send requests to orbit', error.message);
     }
