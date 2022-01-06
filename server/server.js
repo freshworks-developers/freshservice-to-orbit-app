@@ -2,9 +2,17 @@ const base64 = require('base-64');
 const axios = require('axios');
 
 var OrbitBaseUrl = 'https://app.orbit.love';
+var onTicketCreatePayload, onConversationCreatePayload;
+
+async function getData(query) {
+
+}
 
 exports = {
+  
   sendTicketCreationInfo: async function (payload) {
+    onTicketCreatePayload = payload;
+
     let {
       data: {
         ticket: { subject, description_text, requester_id, requester_name }
