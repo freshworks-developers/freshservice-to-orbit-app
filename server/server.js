@@ -25,7 +25,6 @@ exports = {
         'Content-Type': 'application/json'
       }
     };
-    console.log('preparing to send request...');
 
     try {
       let { response: requesterDetails } = await $request.get(
@@ -65,10 +64,49 @@ exports = {
       }
     };
     try {
+      console.log(OptsToOrbit);
       let res = await axios.request(OptsToOrbit);
       console.log('response from orbit', res.status);
     } catch (error) {
       console.error('unable to send requests to orbit', error.status);
+    }
+  },
+  sendConversationInfo: async function (payload) {
+    let {
+      data: {
+        conversation: { body_text, from_email }
+      },
+      iparams
+    } = payload;
+
+    console.log(body_text, from_email);
+
+    let OptsToOrbit = {
+      method: 'POST',
+      url: `${OrbitBaseUrl}/api/v1/${iparams.workspace_slug}/activities`,
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${iparams.orbit_apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        identity: {
+          source: 'Dev-Assist'
+        },
+        activity: {
+          title: `Create Conversation in Freshservice`,
+          description: `${body_text}`,
+          activity_type: 'Reply Is Created in Assist Catalog',
+          member: { email: from_email }
+        }
+      }
+    };
+    console.log(OptsToOrbit);
+    try {
+      let res = await axios.request(OptsToOrbit);
+      console.log('response from orbit', res.status);
+    } catch (error) {
+      console.error('unable to send requests to orbit', error.message);
     }
   }
 };

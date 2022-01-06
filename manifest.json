@@ -5,6 +5,9 @@
       "events": {
         "onTicketCreate": {
           "handler": "sendTicketCreationInfo"
+        },
+        "onConversationCreate": {
+          "handler": "sendConversationInfo"
         }
       }
     }
