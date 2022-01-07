@@ -1,7 +1,9 @@
 const base64 = require('base-64');
 const axios = require('axios');
 
-var onTicketCreatePayload, onConversationCreatePayload;
+var OrbitBaseUrl = 'https://app.orbit.love';
+var onTicketCreatePayload, onConversationCreatePayload, serviceRequester;
+
 
 async function talk(to, options) {
   let {
@@ -13,8 +15,7 @@ async function talk(to, options) {
 
   switch (to) {
     case 'FS': {
-
-      var serviceRequester = {
+      serviceRequester = {
         subject,
         description_text,
         requester_id,
@@ -44,11 +45,10 @@ async function talk(to, options) {
           Authorization: `Bearer ${iparams.orbit_apiKey}`,
           'Content-Type': 'application/json'
         },
-        data: {
-          ...options
-        }
-      }
+        data: options
+      };
     }
+  }
 }
 
 exports = {
@@ -59,34 +59,36 @@ exports = {
 
     try {
       let { data: requesterDetails } = await axios.request(OptsToFS);
-
+      console.log('talking to FS complete', requesterDetails)
       var {
         requester: { first_name, primary_email }
       } = requesterDetails;
     } catch (error) {
       console.log('error', error);
     }
-
     let OptsToOrbit = await talk('Orbit', {
-        identity: {
-          source: 'Dev-Assist',
-          name: first_name
-        },
-        activity: {
-          title: `${serviceRequester.subject}`,
-          description: `${serviceRequester.description_text}`,
-          activity_type: 'Ticket Is Created Via Assist Catalog',
-          member: { email: primary_email }
-        }
-      })
+      identity: {
+        source: 'Dev-Assist',
+        name: first_name
+      },
+      activity: {
+        title: `${serviceRequester.subject}`,
+        description: `${serviceRequester.description_text}`,
+        activity_type: 'Ticket Is Created Via Assist Catalog',
+        member: { email: primary_email }
+      }
+    });
 
     try {
-      await axios.request(OptsToOrbit);
+      let res = await axios.request(OptsToOrbit);
+       console.log('talking to Orbit complete', res);
     } catch (error) {
       console.error('unable to send requests to orbit', error.status);
     }
   },
   sendConversationInfo: async function (payload) {
+    onConversationCreatePayload = payload;
+
     let {
       data: {
         conversation: { body_text, from_email }
