@@ -4,8 +4,7 @@ const axios = require('axios');
 var onTicketCreatePayload, serviceRequester;
 var iparams;
 
-async function talk(to, options) {
-
+async function transformData(to, options) {
   switch (to) {
     case 'FS': {
       let {
@@ -13,7 +12,7 @@ async function talk(to, options) {
           ticket: { subject, description_text, requester_id, requester_name }
         }
       } = onTicketCreatePayload;
-      
+
       serviceRequester = {
         subject,
         description_text,
@@ -54,8 +53,12 @@ exports = {
   sendTicketCreationInfo: async function (payload) {
     onTicketCreatePayload = payload;
     iparams = payload.iparams;
-
-    let OptsToFS = await talk('FS');
+    let {
+      data: {
+        ticket: { id: ticket_id }
+      }
+    } = onTicketCreatePayload;
+    let OptsToFS = await transformData('FS');
 
     try {
       let { data: requesterDetails } = await axios.request(OptsToFS);
@@ -66,7 +69,7 @@ exports = {
     } catch (error) {
       console.log('error', error);
     }
-    let OptsToOrbit = await talk('Orbit', {
+    let OptsToOrbit = await transformData('Orbit', {
       identity: {
         source: 'Dev-Assist',
         name: first_name
@@ -75,27 +78,28 @@ exports = {
         title: `${serviceRequester.subject}`,
         description: `${serviceRequester.description_text}`,
         activity_type: 'Ticket Is Created Via Assist Catalog',
-        member: { email: primary_email }
+        member: { email: primary_email },
+        link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
       }
     });
 
     try {
       let res = await axios.request(OptsToOrbit);
-      console.log('talking to Orbit complete', res);
+      console.info('talking to Orbit complete', res.status);
     } catch (error) {
       console.error('unable to send requests to orbit', error.status);
     }
   },
+
   sendConversationInfo: async function (payload) {
-    // console.log('onConversationCteate', payload);
     let {
       data: {
-        conversation: { body_text, from_email }
+        conversation: { body_text, from_email, ticket_id }
       }
     } = payload;
     iparams = payload.iparams;
 
-    let OptsToOrbit = await talk('Orbit', {
+    let OptsToOrbit = await transformData('Orbit', {
       identity: {
         source: 'Dev-Assist'
       },
@@ -103,12 +107,13 @@ exports = {
         title: `Create Conversation in Freshservice`,
         description: `${body_text}`,
         activity_type: 'Reply Is Created in Assist Catalog',
-        member: { email: from_email }
+        member: { email: from_email },
+        link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
       }
     });
     try {
       let res = await axios.request(OptsToOrbit);
-      console.log('activity create onConvCreate', res);
+      console.info('On conversation creation an activity is created in Orbit', res.status);
     } catch (error) {
       console.error('unable to send requests to orbit', error.message);
     }
