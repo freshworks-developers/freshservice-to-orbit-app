@@ -8,7 +8,7 @@
     },
     "data-bind": "product.domain",
     "required": true,
-    "visible": true
+    "visible": false
   },
   "freshservice_apiKey": {
     "display_name": "API Key of your Freshservice Account",
@@ -19,7 +19,7 @@
     },
     "data-bind": "product.api_key",
     "required": true,
-    "visible": true,
+    "visible": false,
     "secure": true
   },
   "orbit_apiKey": {
