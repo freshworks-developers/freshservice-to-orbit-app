@@ -58,14 +58,23 @@ exports = {
         ticket: { id: ticket_id }
       }
     } = onTicketCreatePayload;
-    let OptsToFS = await transformData('FS');
+    let OptsToGetServiceReqDetails = await transformData('FS');
 
     try {
-      let { data: requesterDetails } = await axios.request(OptsToFS);
-      console.log('talking to FS complete', requesterDetails);
+      let { data: requesterDetails } = await axios.request(OptsToGetServiceReqDetails);
+      let OptsToGetCustomFieldDetails = OptsToGetServiceReqDetails;
+
+      OptsToGetCustomFieldDetails.url = `/tickets/${ticket_id}/requested_items`;
+
+      let { data: requestedItemInformation } = await axios.request(OptsToGetCustomFieldDetails);
+
       var {
         requester: { first_name, primary_email }
       } = requesterDetails;
+
+      var { requested_items } = requestedItemInformation;
+      console.log('requested item info', requestedItemInformation);
+      var item_details = requested_items[0].custom_fields;
     } catch (error) {
       console.log('error', error);
     }
@@ -76,7 +85,7 @@ exports = {
       },
       activity: {
         title: `${serviceRequester.subject}`,
-        description: `${serviceRequester.description_text}`,
+        description: `${serviceRequester.description_text}\n${JSON.stringify(item_details)}`,
         activity_type: 'Ticket Is Created Via Assist Catalog',
         member: { email: primary_email },
         link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
@@ -84,8 +93,9 @@ exports = {
     });
 
     try {
+      console.log('Options being passed to Orbit', OptsToOrbit.data.activity);
       let res = await axios.request(OptsToOrbit);
-      console.info('talking to Orbit complete', res.status);
+      console.info('talking to Orbit complete', res.data);
     } catch (error) {
       console.error('unable to send requests to orbit', error.status);
     }
