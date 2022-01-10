@@ -1,52 +1,27 @@
 const base64 = require('base-64');
 const axios = require('axios');
+var iparams, fsAPI, orbitAPI, onTicketCreatePayload;
 
-var onTicketCreatePayload, serviceRequester;
-var iparams;
+function createAxiosInstances() {
+  let encodedAPIKey = base64.encode(iparams.freshservice_apiKey);
 
-async function transformData(to, options) {
-  switch (to) {
-    case 'FS': {
-      let {
-        data: {
-          ticket: { subject, description_text, requester_id, requester_name }
-        }
-      } = onTicketCreatePayload;
-
-      serviceRequester = {
-        subject,
-        description_text,
-        requester_id,
-        requester_name
-      };
-
-      let encodedAPIKey = base64.encode(iparams.freshservice_apiKey);
-
-      return {
-        method: 'GET',
-        baseURL: `https://${iparams.subdomain}.freshservice.com/api/v2`,
-        url: `/requesters/${serviceRequester.requester_id}`,
-        headers: {
-          Authorization: `Basic ${encodedAPIKey}`,
-          'Content-Type': 'application/json'
-        }
-      };
+  fsAPI = axios.create({
+    baseURL: `https://${iparams.subdomain}.freshservice.com/api/v2`,
+    headers: {
+      Authorization: `Basic ${encodedAPIKey}`,
+      'Content-Type': 'application/json'
     }
+  });
 
-    case 'Orbit': {
-      return {
-        method: 'POST',
-        baseURL: 'https://app.orbit.love/api/v1',
-        url: `/${iparams.workspace_slug}/activities`,
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${iparams.orbit_apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        data: options
-      };
+  orbitAPI = axios.create({
+    method: 'POST',
+    baseURL: 'https://app.orbit.love/api/v1',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${iparams.orbit_apiKey}`,
+      'Content-Type': 'application/json'
     }
-  }
+  });
 }
 
 exports = {
@@ -58,74 +33,83 @@ exports = {
         ticket: { id: ticket_id }
       }
     } = onTicketCreatePayload;
-    let OptsToGetServiceReqDetails = await transformData('FS');
 
+    let {
+      data: {
+        ticket: { subject, description_text, requester_id, requester_name }
+      }
+    } = onTicketCreatePayload;
+
+    let serviceRequester = {
+      subject,
+      description_text,
+      requester_id,
+      requester_name
+    };
+
+    createAxiosInstances();
     try {
-      let { data: requesterDetails } = await axios.request(OptsToGetServiceReqDetails);
-      let OptsToGetCustomFieldDetails = OptsToGetServiceReqDetails;
-
-      OptsToGetCustomFieldDetails.url = `/tickets/${ticket_id}/requested_items`;
-
-      let { data: requestedItemInformation } = await axios.request(OptsToGetCustomFieldDetails);
-
+      let { data: requesterDetails } = await fsAPI.get(`/requesters/${serviceRequester.requester_id}`);
+      let { data: requestedItemInformation } = await fsAPI.get(`/tickets/${ticket_id}/requested_items`);
       var {
         requester: { first_name, primary_email }
       } = requesterDetails;
-
       var { requested_items } = requestedItemInformation;
-      console.log('requested item info', requestedItemInformation);
       var item_details = requested_items[0].custom_fields;
-    } catch (error) {
-      console.log('error', error);
-    }
-    let OptsToOrbit = await transformData('Orbit', {
-      identity: {
-        source: 'Dev-Assist',
-        name: first_name
-      },
-      activity: {
-        title: `${serviceRequester.subject}`,
-        description: `${serviceRequester.description_text}\n${JSON.stringify(item_details)}`,
-        activity_type: 'Ticket Is Created Via Assist Catalog',
-        member: { email: primary_email },
-        link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
-      }
-    });
 
-    try {
-      console.log('Options being passed to Orbit', OptsToOrbit.data.activity);
-      let res = await axios.request(OptsToOrbit);
+      let res = await orbitAPI.post(`/${iparams.workspace_slug}/activities`, {
+        identity: {
+          source: 'freshservice'
+        },
+        activity: {
+          title: `${serviceRequester.subject}`,
+          description: `${serviceRequester.description_text}\n${JSON.stringify(item_details, null, 2)}`,
+          activity_type: 'Ticket Is Created Via Assist Catalog',
+          member: { email: primary_email, name: first_name },
+          link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
+        }
+      });
       console.info('talking to Orbit complete', res.data);
     } catch (error) {
-      console.error('unable to send requests to orbit', error.status);
+      console.error('unable to send requests to orbit', error);
     }
   },
 
   sendConversationInfo: async function (payload) {
     let {
       data: {
-        conversation: { body_text, from_email, ticket_id }
+        conversation: { body_text, user_id, ticket_id }
       }
     } = payload;
+    console.info('conversation payload', user_id); // requester id = 14001358196
     iparams = payload.iparams;
+    createAxiosInstances();
 
-    let OptsToOrbit = await transformData('Orbit', {
-      identity: {
-        source: 'Dev-Assist'
-      },
-      activity: {
-        title: `Create Conversation in Freshservice`,
-        description: `${body_text}`,
-        activity_type: 'Reply Is Created in Assist Catalog',
-        member: { email: from_email },
-        link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
-      }
-    });
     try {
-      let res = await axios.request(OptsToOrbit);
-      console.info('On conversation creation an activity is created in Orbit', res.status);
+      var {
+        data: {
+          requester: { first_name, last_name, primary_email, secondary_emails }
+        }
+      } = await fsAPI.get(`/requesters/${user_id}`);
+
+      console.log('replier-email', first_name, last_name, primary_email, secondary_emails);
+
+      let res = await orbitAPI.post(`/${iparams.workspace_slug}/activities`, {
+        identity: {
+          source: 'freshservice',
+          uid: `${user_id}`
+        },
+        activity: {
+          title: `Create Conversation in Freshservice`,
+          description: `${body_text}`,
+          activity_type: 'Reply Is Created in Assist Catalog',
+          member: { email: primary_email, name: `${first_name} ${last_name}` },
+          link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
+        }
+      });
+      console.info('On conversation creation an activity is created in Orbit', res.data);
     } catch (error) {
-      console.error('unable to send requests to orbit', error.message);
+      console.error('problem getting user details', error);
     }
   }
 };
