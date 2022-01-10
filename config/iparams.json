@@ -8,7 +8,7 @@
     },
     "data-bind": "product.domain",
     "required": true,
-    "visible": false
+    "visible": true
   },
   "freshservice_apiKey": {
     "display_name": "API Key of your Freshservice Account",
@@ -19,7 +19,7 @@
     },
     "data-bind": "product.api_key",
     "required": true,
-    "visible": false,
+    "visible": true,
     "secure": true
   },
   "orbit_apiKey": {
@@ -38,7 +38,7 @@
     "display_name": "Select Orbit Workspace",
     "description": "This is usually the slug of your orbit workspace. Select one from the dropdown below.",
     "type": "dropdown",
-    "options": ["to_be_fetched"],
-    "default_value": "to_be_fetched"
+    "options": ["..."],
+    "default_value": "..."
   }
 }

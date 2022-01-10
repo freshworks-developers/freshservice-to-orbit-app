@@ -19,7 +19,7 @@ async function transformData(to, options) {
         requester_id,
         requester_name
       };
-
+      console.log('OnTickCreate - serviceRequester', serviceRequester);
       let encodedAPIKey = base64.encode(iparams.freshservice_apiKey);
 
       return {
@@ -59,7 +59,7 @@ exports = {
       }
     } = onTicketCreatePayload;
     let OptsToGetServiceReqDetails = await transformData('FS');
-
+    console.log('OnTickCreate - OptsToGetServiceReqDetails', OptsToGetServiceReqDetails);
     try {
       let { data: requesterDetails } = await axios.request(OptsToGetServiceReqDetails);
       let OptsToGetCustomFieldDetails = OptsToGetServiceReqDetails;
@@ -73,7 +73,7 @@ exports = {
       } = requesterDetails;
 
       var { requested_items } = requestedItemInformation;
-      console.log('requested item info', requestedItemInformation);
+      // console.log('requested item info', requestedItemInformation);
       var item_details = requested_items[0].custom_fields;
     } catch (error) {
       console.log('error', error);
@@ -91,9 +91,10 @@ exports = {
         link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
       }
     });
+    // console.log('OptsToOrbit', OptsToOrbit);
 
     try {
-      console.log('Options being passed to Orbit', OptsToOrbit.data.activity);
+      console.log('[onTicketCreate] Options being passed to Orbit', OptsToOrbit.data.activity);
       let res = await axios.request(OptsToOrbit);
       console.info('talking to Orbit complete', res.data);
     } catch (error) {
@@ -104,10 +105,37 @@ exports = {
   sendConversationInfo: async function (payload) {
     let {
       data: {
-        conversation: { body_text, from_email, ticket_id }
+        conversation: { body_text, from_email, ticket_id },
+        private,
+        user_id
       }
     } = payload;
+    console.info('conversation payload', JSON.stringify(payload));
     iparams = payload.iparams;
+    let encodedAPIKey = base64.encode(iparams.freshservice_apiKey); // requester id = 14001358196
+    if (private) {
+      let { data: replier_email } = await axios.request({
+        method: 'GET',
+        baseURL: `https://${iparams.subdomain}.freshservice.com/api/v2`,
+        url: `/agents/${user_id}`,
+        headers: {
+          Authorization: `Basic ${encodedAPIKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    } else {
+      let { data: replier_email } = await axios.request({
+        method: 'GET',
+        baseURL: `https://${iparams.subdomain}.freshservice.com/api/v2`,
+        url: `/requesters/${user_id}`,
+        headers: {
+          Authorization: `Basic ${encodedAPIKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+
+    console.log('replier-email', replier_email);
 
     let OptsToOrbit = await transformData('Orbit', {
       identity: {
@@ -121,11 +149,12 @@ exports = {
         link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
       }
     });
+    console.log('onConvCreate - OptsToOrbit', JSON.stringify(OptsToOrbit));
     try {
       let res = await axios.request(OptsToOrbit);
       console.info('On conversation creation an activity is created in Orbit', res.status);
     } catch (error) {
-      console.error('unable to send requests to orbit', error.message);
+      console.error('unable to send requests to orbit', JSON.stringify(error));
     }
   }
 };
