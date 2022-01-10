@@ -80,14 +80,13 @@ exports = {
     }
     let OptsToOrbit = await transformData('Orbit', {
       identity: {
-        source: 'Dev-Assist',
-        name: first_name
+        source: 'Dev-Assist'
       },
       activity: {
         title: `${serviceRequester.subject}`,
         description: `${serviceRequester.description_text}\n${JSON.stringify(item_details)}`,
         activity_type: 'Ticket Is Created Via Assist Catalog',
-        member: { email: primary_email },
+        member: { email: primary_email, name: first_name },
         link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
       }
     });
@@ -105,26 +104,18 @@ exports = {
   sendConversationInfo: async function (payload) {
     let {
       data: {
-        conversation: { body_text, from_email, ticket_id },
-        private,
-        user_id
+        conversation: { body_text, user_id, ticket_id }
       }
     } = payload;
-    console.info('conversation payload', JSON.stringify(payload));
+    console.info('conversation payload', user_id);
     iparams = payload.iparams;
     let encodedAPIKey = base64.encode(iparams.freshservice_apiKey); // requester id = 14001358196
-    if (private) {
-      let { data: replier_email } = await axios.request({
-        method: 'GET',
-        baseURL: `https://${iparams.subdomain}.freshservice.com/api/v2`,
-        url: `/agents/${user_id}`,
-        headers: {
-          Authorization: `Basic ${encodedAPIKey}`,
-          'Content-Type': 'application/json'
+    try {
+      var {
+        data: {
+          requester: { first_name, last_name, primary_email, secondary_emails }
         }
-      });
-    } else {
-      let { data: replier_email } = await axios.request({
+      } = await axios.request({
         method: 'GET',
         baseURL: `https://${iparams.subdomain}.freshservice.com/api/v2`,
         url: `/requesters/${user_id}`,
@@ -133,26 +124,28 @@ exports = {
           'Content-Type': 'application/json'
         }
       });
+      console.log('replier-email', first_name, last_name, primary_email, secondary_emails);
+    } catch (error) {
+      console.error('problem getting user details', error);
     }
-
-    console.log('replier-email', replier_email);
 
     let OptsToOrbit = await transformData('Orbit', {
       identity: {
-        source: 'Dev-Assist'
+        source: 'freshservice',
+        uid: `${user_id}`
       },
       activity: {
         title: `Create Conversation in Freshservice`,
         description: `${body_text}`,
         activity_type: 'Reply Is Created in Assist Catalog',
-        member: { email: from_email },
+        member: { email: primary_email, name: `${first_name} ${last_name}` },
         link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
       }
     });
     console.log('onConvCreate - OptsToOrbit', JSON.stringify(OptsToOrbit));
     try {
       let res = await axios.request(OptsToOrbit);
-      console.info('On conversation creation an activity is created in Orbit', res.status);
+      console.info('On conversation creation an activity is created in Orbit', res.data);
     } catch (error) {
       console.error('unable to send requests to orbit', JSON.stringify(error));
     }
