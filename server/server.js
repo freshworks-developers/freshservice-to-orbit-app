@@ -1,36 +1,12 @@
 const base64 = require('base-64');
 const axios = require('axios');
 
-var onTicketCreatePayload, serviceRequester;
-var iparams;
+var iparams, fsAPI, orbitAPI;
 
 async function transformData(to, options) {
   switch (to) {
     case 'FS': {
-      let {
-        data: {
-          ticket: { subject, description_text, requester_id, requester_name }
-        }
-      } = onTicketCreatePayload;
-
-      serviceRequester = {
-        subject,
-        description_text,
-        requester_id,
-        requester_name
-      };
-      console.log('OnTickCreate - serviceRequester', serviceRequester);
-      let encodedAPIKey = base64.encode(iparams.freshservice_apiKey);
-
-      return {
-        method: 'GET',
-        baseURL: `https://${iparams.subdomain}.freshservice.com/api/v2`,
-        url: `/requesters/${serviceRequester.requester_id}`,
-        headers: {
-          Authorization: `Basic ${encodedAPIKey}`,
-          'Content-Type': 'application/json'
-        }
-      };
+      return;
     }
 
     case 'Orbit': {
@@ -58,46 +34,64 @@ exports = {
         ticket: { id: ticket_id }
       }
     } = onTicketCreatePayload;
-    let OptsToGetServiceReqDetails = await transformData('FS');
-    console.log('OnTickCreate - OptsToGetServiceReqDetails', OptsToGetServiceReqDetails);
+
+    let {
+      data: {
+        ticket: { subject, description_text, requester_id, requester_name }
+      }
+    } = onTicketCreatePayload;
+
+    serviceRequester = {
+      subject,
+      description_text,
+      requester_id,
+      requester_name
+    };
+
+    let encodedAPIKey = base64.encode(iparams.freshservice_apiKey);
+
+    fsAPI = axios.create({
+      baseURL: `https://${iparams.subdomain}.freshservice.com/api/v2`,
+      headers: {
+        Authorization: `Basic ${encodedAPIKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    OrbitAPI = axios.create({
+      method: 'POST',
+      baseURL: 'https://app.orbit.love/api/v1',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${iparams.orbit_apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
     try {
-      let { data: requesterDetails } = await axios.request(OptsToGetServiceReqDetails);
-      let OptsToGetCustomFieldDetails = OptsToGetServiceReqDetails;
-
-      OptsToGetCustomFieldDetails.url = `/tickets/${ticket_id}/requested_items`;
-
-      let { data: requestedItemInformation } = await axios.request(OptsToGetCustomFieldDetails);
-
+      let { data: requesterDetails } = await fsAPI.get(`/requesters/${serviceRequester.requester_id}`);
+      let { data: requestedItemInformation } = await fsAPI.get(`/tickets/${ticket_id}/requested_items`);
       var {
         requester: { first_name, primary_email }
       } = requesterDetails;
-
       var { requested_items } = requestedItemInformation;
-      // console.log('requested item info', requestedItemInformation);
       var item_details = requested_items[0].custom_fields;
-    } catch (error) {
-      console.log('error', error);
-    }
-    let OptsToOrbit = await transformData('Orbit', {
-      identity: {
-        source: 'Dev-Assist'
-      },
-      activity: {
-        title: `${serviceRequester.subject}`,
-        description: `${serviceRequester.description_text}\n${JSON.stringify(item_details)}`,
-        activity_type: 'Ticket Is Created Via Assist Catalog',
-        member: { email: primary_email, name: first_name },
-        link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
-      }
-    });
-    // console.log('OptsToOrbit', OptsToOrbit);
 
-    try {
-      console.log('[onTicketCreate] Options being passed to Orbit', OptsToOrbit.data.activity);
-      let res = await axios.request(OptsToOrbit);
+      let res = await OrbitAPI.post(`/${iparams.workspace_slug}/activities`, {
+        identity: {
+          source: 'freshservice'
+        },
+        activity: {
+          title: `${serviceRequester.subject}`,
+          description: `${serviceRequester.description_text}\n${JSON.stringify(item_details, null, 2)}`,
+          activity_type: 'Ticket Is Created Via Assist Catalog',
+          member: { email: primary_email, name: first_name },
+          link: `https://${iparams.subdomain}.freshservice.com/helpdesk/tickets/${ticket_id}`
+        }
+      });
       console.info('talking to Orbit complete', res.data);
     } catch (error) {
-      console.error('unable to send requests to orbit', error.status);
+      console.error('unable to send requests to orbit', error);
     }
   },
 
